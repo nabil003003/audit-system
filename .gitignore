@@ -1,0 +1,35 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# Node.js
+node_modules/
+dist/
+.next/
+out/
+build/
+coverage/
+
+# IDEs
+.idea/
+.vscode/
+.eclipse/
+*.swp
+*.swo
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
