@@ -2,9 +2,9 @@ spring:
   application:
     name: audit-platform
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
-    username: postgres
-    password: "123456"
+    url: jdbc:postgresql://localhost:5433/audit_platform
+    username: audit
+    password: "audit_secret"
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

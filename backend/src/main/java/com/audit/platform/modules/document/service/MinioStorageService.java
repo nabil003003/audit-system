@@ -96,6 +96,16 @@ public class MinioStorageService {
         return baseUrl + "/api/files/download?key=" + encodedKey;
     }
 
+    public void deleteFile(String key) {
+        Path file = Paths.get(localStoragePath, key.replace("/", java.io.File.separator));
+        try {
+            Files.deleteIfExists(file);
+            log.debug("Deleted file: {}", file.toAbsolutePath());
+        } catch (IOException e) {
+            log.warn("Could not delete file {}: {}", key, e.getMessage());
+        }
+    }
+
     private void validateMime(String mime) {
         if (mime != null && !ALLOWED.contains(mime)) {
             // Log warning but don't block — allow any file type

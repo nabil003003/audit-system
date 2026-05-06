@@ -94,6 +94,19 @@ public class DocumentService {
     }
 
     @Transactional
+    public void delete(UUID docId) {
+        Document doc = documentRepository.findById(docId)
+                .orElseThrow(() -> new ApiException(ErrorCode.DOC_001, HttpStatus.NOT_FOUND));
+        // Remove physical file from storage
+        try {
+            storageService.deleteFile(doc.getFileKey());
+        } catch (Exception e) {
+            // Log but don't block deletion if file is already missing
+        }
+        documentRepository.delete(doc);
+    }
+
+    @Transactional
     public DocumentRequestResponse createRequest(CreateDocRequestRequest req) {
         Audit audit = findAudit(req.getAuditId());
         User requester = currentUser();

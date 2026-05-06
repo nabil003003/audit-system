@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import Link from 'next/link';
 import {
   ArrowLeft, MessageSquare, FileText, Brain, ChevronDown,
-  Upload, Download, AlertTriangle, CheckCircle, Clock, Activity, FileBadge
+  Upload, Download, AlertTriangle, CheckCircle, Clock, Activity, FileBadge, ExternalLink, Trash2
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, { text: string; badge: string }> = {
@@ -231,6 +231,15 @@ export default function AuditDetailPage() {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  const deleteDoc = async (docId: string, docName: string) => {
+    if (!window.confirm(`Supprimer le document "${docName}" ? Cette action est irréversible.`)) return;
+    try {
+      await apiFetch(`/api/documents/${docId}`, { method: 'DELETE' });
+      toast.success('Document supprimé');
+      loadAudit();
+    } catch (e: any) { toast.error('Erreur suppression : ' + e.message); }
+  };
+
   if (!audit) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -338,10 +347,10 @@ export default function AuditDetailPage() {
           )}
         </div>
 
-        {/* AI Results */}
-        <div className="glass rounded-2xl p-6 space-y-4">
+        {/* AI Results — RAG Juridique Marocain */}
+        <div className="glass rounded-2xl p-6 space-y-4 border border-indigo-500/20">
           <h2 className="font-semibold text-[var(--foreground)] flex items-center gap-2">
-            <Brain className="h-5 w-5 text-indigo-400" /> Analyse IA
+            <Brain className="h-5 w-5 text-indigo-400" /> Analyse Juridique RAG
           </h2>
           {aiResult ? (
             <div className="space-y-4">
@@ -361,33 +370,31 @@ export default function AuditDetailPage() {
                   style={{ width: `${aiResult.riskScore}%` }} />
               </div>
               <div className="bg-[var(--muted)]/50 rounded-xl p-3">
-                <p className="text-xs text-[var(--muted-foreground)] mb-1">Résumé IA</p>
+                <p className="text-xs text-[var(--muted-foreground)] mb-1">Résumé</p>
                 <p className="text-sm text-[var(--foreground)] leading-relaxed">{aiResult.summary}</p>
               </div>
-              <div className="flex items-center justify-between mt-2">
-                 <p className="text-xs text-[var(--muted-foreground)]">Modèle: {aiResult.modelUsed}</p>
-                 <button 
-                    onClick={triggerAiAnalysis} 
-                    disabled={analyzing}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline disabled:opacity-50">
-                    {analyzing ? 'Analyse en cours...' : 'Relancer l\'analyse'}
-                 </button>
-              </div>
+              <Link href={`/audit/${id}/analyse`}
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-all shadow-md shadow-indigo-500/20">
+                <Brain className="h-4 w-4" /> Ouvrir l&apos;analyse complète
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
             </div>
           ) : (
-            <div className="py-8 text-center space-y-4">
-              <Brain className="h-10 w-10 mx-auto text-[var(--muted-foreground)]/30" />
-              <div>
-                <p className="text-[var(--muted-foreground)] text-sm">Aucune analyse IA disponible</p>
-                <p className="text-xs text-[var(--muted-foreground)]/60">Assurez-vous d'avoir téléchargé les documents</p>
+            <div className="py-6 text-center space-y-4">
+              <div className="h-16 w-16 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center">
+                <Brain className="h-8 w-8 text-indigo-400" />
               </div>
-              <button 
-                onClick={triggerAiAnalysis} 
-                disabled={analyzing}
-                className="mx-auto flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-all shadow-md shadow-indigo-500/20 disabled:opacity-50">
-                {analyzing ? <span className="h-4 w-4 border-2 border-white/50 border-t-white rounded-full animate-spin" /> : <Brain className="h-4 w-4" />}
-                {analyzing ? 'Lancement...' : 'Générer l\'analyse IA'}
-              </button>
+              <div>
+                <p className="text-[var(--foreground)] font-medium text-sm">Analyse juridique RAG locale</p>
+                <p className="text-xs text-[var(--muted-foreground)]/80 mt-1">
+                  Comparaison avec la base de droit marocain (10 domaines) + rapport Word
+                </p>
+              </div>
+              <Link href={`/audit/${id}/analyse`}
+                className="mx-auto flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all shadow-lg shadow-indigo-500/25">
+                <Brain className="h-4 w-4" /> Lancer l&apos;analyse RAG
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
             </div>
           )}
         </div>
@@ -417,7 +424,7 @@ export default function AuditDetailPage() {
               {docs.length === 0 ? (
                 <p className="text-center py-6 text-sm text-[var(--muted-foreground)]">Aucun document</p>
               ) : docs.map(d => (
-                <div key={d.id} className="flex items-center gap-3 px-3 py-2.5 bg-[var(--muted)]/40 rounded-xl border border-[var(--border)]/50">
+                <div key={d.id} className="flex items-center gap-3 px-3 py-2.5 bg-[var(--muted)]/40 rounded-xl border border-[var(--border)]/50 group">
                   <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-[var(--foreground)] truncate">{d.fileName}</p>
@@ -427,6 +434,12 @@ export default function AuditDetailPage() {
                     className="h-7 w-7 flex items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors flex-shrink-0">
                     <Download className="h-3.5 w-3.5" />
                   </a>
+                  <button
+                    onClick={() => deleteDoc(d.id, d.fileName)}
+                    title="Supprimer ce document"
+                    className="h-7 w-7 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               ))}
             </div>

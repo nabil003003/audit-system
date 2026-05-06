@@ -33,3 +33,24 @@ logs/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Python RAG service
+audit_rag_maroc/venv/
+audit_rag_maroc/__pycache__/
+audit_rag_maroc/*.pyc
+audit_rag_maroc/vector_db/
+audit_rag_maroc/reports/
+audit_rag_maroc/.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Uploads (données locales)
+audit-platform-uploads/
+
+# Docker volumes
+postgres_data/
+minio_data/

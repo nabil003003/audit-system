@@ -52,7 +52,14 @@ public class DocumentController {
         return ResponseEntity.ok(documentService.getById(id));
     }
 
-    // Document Requests (Auditor -> Client)
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'AUDITOR', 'CLIENT')")
+    @Operation(summary = "Delete a document by ID")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        documentService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
 
     @PostMapping("/requests")
     @PreAuthorize("hasRole('AUDITOR')")
