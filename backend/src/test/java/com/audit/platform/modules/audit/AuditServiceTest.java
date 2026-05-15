@@ -68,6 +68,9 @@ class AuditServiceTest {
         managerUser = new User();
         managerUser.setId(UUID.randomUUID());
         managerUser.setRole(UserRole.MANAGER);
+        managerUser.setEmail("manager@audit.com");
+        managerUser.setPasswordHash("encodedPassword");
+        managerUser.setStatus(com.audit.platform.modules.user.domain.UserStatus.ACTIVE);
 
         testAudit = new Audit();
         testAudit.setId(UUID.randomUUID());
@@ -85,7 +88,7 @@ class AuditServiceTest {
         request.setDescription("Description test");
         request.setClientId(clientUser.getId());
 
-        SecurityUserDetails ud = new SecurityUserDetails(managerUser.getId(), managerUser.getEmail(), managerUser.getPasswordHash(), managerUser.getRole());
+        SecurityUserDetails ud = new SecurityUserDetails(managerUser);
         Authentication auth = new UsernamePasswordAuthenticationToken(ud, null, ud.getAuthorities());
         SecurityContext sc = mock(SecurityContext.class);
         when(sc.getAuthentication()).thenReturn(auth);
@@ -114,7 +117,7 @@ class AuditServiceTest {
     void assignAudit_NotifiesAuditor() {
         // Given
         testAudit.setStatus(AuditStatus.PENDING);
-        SecurityUserDetails ud = new SecurityUserDetails(managerUser.getId(), managerUser.getEmail(), managerUser.getPasswordHash(), managerUser.getRole());
+        SecurityUserDetails ud = new SecurityUserDetails(managerUser);
         Authentication auth = new UsernamePasswordAuthenticationToken(ud, null, ud.getAuthorities());
         SecurityContext sc = mock(SecurityContext.class);
         when(sc.getAuthentication()).thenReturn(auth);

@@ -1,94 +1,77 @@
-# ============================================================
-# config.py — Configuration centrale du projet RAG
-# RAG Audit Juridique Marocain
-# ============================================================
+# -*- coding: utf-8 -*-
+"""Environment-driven configuration only. No business defaults beyond getenv fallbacks."""
+
+from __future__ import annotations
 
 import os
+from pathlib import Path
 
-# ── Chemins ─────────────────────────────────────────────────
-# Dossier racine des documents juridiques PDF
-DATA_PATH = "./data"
+from dotenv import load_dotenv
 
-# Dossier de la base vectorielle ChromaDB (créé automatiquement)
-VECTOR_DB_PATH = "./vector_db"
+_BASE = Path(__file__).resolve().parent
+load_dotenv(_BASE / ".env", override=False)
 
-# Nom de la collection ChromaDB
-COLLECTION_NAME = "droit_marocain"
 
-# ── Paramètres de découpage (chunking) ──────────────────────
-# Taille de chaque chunk en caractères
-CHUNK_SIZE = 1000
+def _get_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
-# Chevauchement entre chunks consécutifs (pour ne pas perdre le contexte)
-CHUNK_OVERLAP = 200
 
-# ── Paramètres de récupération (retrieval) ──────────────────
-# Nombre de chunks récupérés pour chaque requête
-RETRIEVAL_K = 8
+def _get_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
 
-# Type de recherche : "similarity" ou "mmr" (Maximum Marginal Relevance)
-# mmr = diversifie les sources pour éviter les répétitions
-RETRIEVAL_TYPE = "mmr"
 
-# Score de similarité minimum (0 = tout accepter, 1 = parfait)
-SIMILARITY_THRESHOLD = 0.3
+def _get_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
 
-# Température du LLM (0.0 = déterministe, anti-hallucination)
-TEMPERATURE = 0.0
 
-# Interdit de citer le CGI hors contexte fiscal (anti-hallucination)
-INTERDIT_CGI = True
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+OLLAMA_NUM_PREDICT = _get_int("OLLAMA_NUM_PREDICT", 1024)
+OLLAMA_TEMPERATURE = _get_float("OLLAMA_TEMPERATURE", 0.1)
+OLLAMA_TOP_P = _get_float("OLLAMA_TOP_P", 0.9)
 
-# ── Modèle d'embeddings ─────────────────────────────────────
-# Modèle gratuit, léger et performant (pas de clé API requise)
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()  # "ollama" or "gemini"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
-# ── Modèles LLM disponibles via Ollama ──────────────────────
-# Structure : {clé: {nom, description, qualité, RAM, commande_ollama}}
-AVAILABLE_MODELS = {
-    "llama3": {
-        "nom": "Llama 3 (8B)",
-        "description": "Meilleure qualité de raisonnement juridique",
-        "qualite": "⭐⭐⭐⭐⭐",
-        "ram_requise": "8 GB",
-        "commande_ollama": "ollama pull llama3",
-        "contexte_max": 8192,
-        "recommande": True,
-    },
-    "mistral": {
-        "nom": "Mistral (7B)",
-        "description": "Bon équilibre qualité/vitesse, excellent en français",
-        "qualite": "⭐⭐⭐⭐",
-        "ram_requise": "6 GB",
-        "commande_ollama": "ollama pull mistral",
-        "contexte_max": 8192,
-        "recommande": True,
-    },
-    "phi3": {
-        "nom": "Phi-3 Mini (3.8B)",
-        "description": "Léger et rapide, idéal pour machines avec peu de RAM",
-        "qualite": "⭐⭐⭐",
-        "ram_requise": "4 GB",
-        "commande_ollama": "ollama pull phi3",
-        "contexte_max": 4096,
-        "recommande": False,
-    },
-    "gemma2": {
-        "nom": "Gemma 2 (9B)",
-        "description": "Précis mais plus lent, bon pour l'analyse fine",
-        "qualite": "⭐⭐⭐⭐",
-        "ram_requise": "8 GB",
-        "commande_ollama": "ollama pull gemma2",
-        "contexte_max": 8192,
-        "recommande": False,
-    },
-}
+TEMPERATURE = OLLAMA_TEMPERATURE
+RETRIEVAL_TYPE = os.getenv("RETRIEVAL_TYPE", "mmr")
+SIMILARITY_THRESHOLD = _get_float("SIMILARITY_THRESHOLD", 0.3)
+INTERDIT_CGI = _get_bool("INTERDIT_CGI", True)
 
-# Modèle par défaut
-DEFAULT_MODEL = "mistral"
+VECTOR_STORE_PATH = Path(os.getenv("VECTOR_STORE_PATH", "./data/vector_store")).resolve()
+LEGAL_DOCUMENTS_PATH = Path(os.getenv("LEGAL_DOCUMENTS_PATH", "./data")).resolve()
+REBUILD_INDEX = _get_bool("REBUILD_INDEX", False)
+INDEX_MAX_AGE_DAYS = _get_int("INDEX_MAX_AGE_DAYS", 30)
 
-# ── Catégories juridiques marocaines ────────────────────────
-# Correspondance entre nom de dossier et libellé affiché
+RETRIEVAL_K = _get_int("RETRIEVAL_K", 4)
+RETRIEVAL_FETCH_K = _get_int("RETRIEVAL_FETCH_K", 20)
+RETRIEVAL_LAMBDA_MULT = _get_float("RETRIEVAL_LAMBDA_MULT", 0.5)
+
+RAG_PUBLIC_API_URL = os.getenv("NEXT_PUBLIC_RAG_API_URL", "http://localhost:8000").rstrip("/")
+MAX_PDF_WORKERS = _get_int("MAX_PDF_WORKERS", 5)
+PDF_DOWNLOAD_TIMEOUT = _get_int("PDF_DOWNLOAD_TIMEOUT", 30)
+
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+
+CHUNK_SIZE = _get_int("CHUNK_SIZE", 800)
+CHUNK_OVERLAP = _get_int("CHUNK_OVERLAP", 200)
+
+# Legacy Chroma scripts (01_load_and_index.py, Streamlit) — separate from FAISS VECTOR_STORE_PATH
+CHROMA_PERSIST_DIR = Path(os.getenv("CHROMA_PERSIST_DIR", "./vector_db")).resolve()
+COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "droit_marocain")
+VECTOR_DB_PATH = str(CHROMA_PERSIST_DIR)
+DATA_PATH = str(LEGAL_DOCUMENTS_PATH)
+
 CATEGORIES_JURIDIQUES = {
     "droit bancaire et financier": "Droit Bancaire et Financier",
     "droit de la concurrence et consommation": "Droit de la Concurrence et Consommation",
@@ -102,51 +85,28 @@ CATEGORIES_JURIDIQUES = {
     "droit pénal et procédure pénale": "Droit Pénal et Procédure Pénale",
 }
 
-# ── Prompt d'audit corrigé ─────────────────────────────────────
-AUDIT_PROMPT_TEMPLATE = """Tu es un expert senior en audit de conformité juridique marocaine.
-
-═══════════════════════════════════════════════════
-RÔLES DES DEUX ENTRÉES :
-- BASE JURIDIQUE (ci-dessous) = Les TEXTES DE LOI MAROCAINS de référence
-- DOCUMENT CLIENT (ci-dessous) = Le document soumis par l'entreprise à auditer
-═══════════════════════════════════════════════════
-
-BASE JURIDIQUE MAROCAINE (textes de référence) :
+AVAILABLE_MODELS = {
+    "llama3": {"nom": "Llama 3 (8B)"},
+    "mistral": {"nom": "Mistral (7B)"},
+    "phi3": {"nom": "Phi-3 Mini"},
+    "gemma2": {"nom": "Gemma 2 (9B)"},
+}
+DEFAULT_MODEL = OLLAMA_MODEL
+AUDIT_PROMPT_TEMPLATE = """You are an expert Moroccan legal auditor.
+Compare the CLIENT DOCUMENT with the LEGAL BASE excerpts.
+BASE JURIDIQUE:
 {context}
-
-═══════════════════════════════════════════════════
-DOCUMENT CLIENT À AUDITER :
+DOCUMENT CLIENT:
 {question}
-═══════════════════════════════════════════════════
-
-MISSION : Compare le DOCUMENT CLIENT avec la BASE JURIDIQUE.
-- Identifie les clauses, montants, délais ou pratiques du document client qui
-  sont contraires, manquants ou non conformes aux textes de loi marocains.
-- Si le document client est conforme aux lois marocaines → réponds CONFORME.
-- Si le document client contient des violations → liste chaque violation.
-
-RÈGLES ABSOLUES :
-1. Ne cite QUE des références exactes présentes dans la BASE JURIDIQUE.
-2. N'invente aucun article, loi ou référence.
-3. Si tu n'as pas assez d'information → réponds NON DISPONIBLE.
-4. Sois précis : la violation doit citer le texte problématique du document client.
-
-FORMAT DE RÉPONSE OBLIGATOIRE :
-
-Si violation(s) trouvée(s) dans le document client :
+MISSION : Identify only real non-conformities.
+FORMAT:
 === VIOLATION ===
-📌 TEXTE ORIGINAL : [extrait exact du document client qui pose problème]
-📖 CITATION EXACTE DU DOCUMENT : "[article ou clause de la loi marocaine violée]"
-📁 SOURCE : [nom du fichier de loi marocaine]
+📌 TEXTE ORIGINAL : [extrait client]
+📖 CITATION EXACTE : "[loi marocaine]"
+📁 SOURCE : [nom du fichier]
+If compliant: ✅ CONFORME
+Be brief and precise. Keep the analysis section detailed and professional in French.."""
 
-Si le document client est conforme :
-✅ CONFORME - Le document respecte les dispositions du droit marocain applicable.
-
-Si information insuffisante :
-❌ NON DISPONIBLE - Données insuffisantes pour évaluer la conformité.
-"""
-
-# ── Paramètres Streamlit ─────────────────────────────────────
 APP_TITLE = "⚖️ Audit Juridique Marocain — RAG"
 APP_ICON = "⚖️"
 APP_DESCRIPTION = "Assistant IA d'audit de conformité au droit marocain"

@@ -55,6 +55,22 @@ public class AppProperties {
         private final Groq groq = new Groq();
         private final Mistral mistral = new Mistral();
         private final OpenAi openai = new OpenAi();
+        private final Rag rag = new Rag();
+
+        @Getter
+        @Setter
+        public static class Rag {
+            /**
+             * Python FastAPI RAG service (e.g. http://localhost:8000).
+             */
+            private String baseUrl = "http://localhost:8000";
+            /**
+             * Public URL of this Spring app for document download links passed to RAG (no trailing slash).
+             */
+            private String publicBaseUrl = "http://localhost:8080";
+            /** Logical model label for persistence (matches Python OLLAMA_MODEL when applicable). */
+            private String modelName = "mistral";
+        }
 
         @Getter
         @Setter

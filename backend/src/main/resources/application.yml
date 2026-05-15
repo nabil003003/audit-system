@@ -2,9 +2,9 @@ spring:
   application:
     name: audit-platform
   datasource:
-    url: jdbc:postgresql://localhost:5433/audit_platform
-    username: audit
-    password: "audit_secret"
+    url: jdbc:postgresql://ep-weathered-hill-aldoefg3.c-3.eu-central-1.aws.neon.tech:5432/neondb?sslmode=require
+    username: neondb_owner
+    password: "npg_xIg3LsiMGhy8"
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -63,6 +63,10 @@ app:
       api-key: ${OPENAI_API_KEY:}
       base-url: https://api.openai.com/v1
       model: gpt-4o-mini
+    rag:
+      base-url: ${RAG_API_BASE_URL:http://localhost:8000}
+      public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
+      model-name: gemini-1.5-flash
   client-doc-quota-mb: 500
   rate-limit:
     auth-per-minute: 10

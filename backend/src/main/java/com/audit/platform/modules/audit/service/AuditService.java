@@ -14,7 +14,9 @@ import com.audit.platform.modules.user.domain.UserRole;
 import com.audit.platform.modules.user.repository.UserRepository;
 import com.audit.platform.shared.exception.ApiException;
 import com.audit.platform.shared.exception.ErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -34,6 +36,8 @@ public class AuditService {
     private final AuditHistoryRepository auditHistoryRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final AuditLogService auditLogService;
+    private final HttpServletRequest request;
 
     @Transactional
     public AuditResponse create(CreateAuditRequest req) {
@@ -53,6 +57,9 @@ public class AuditService {
                 .status(AuditStatus.DRAFT)
                 .build();
         Audit savedAudit = auditRepository.save(audit);
+        
+        auditLogService.log(Optional.of(creator), "CREATE_AUDIT", "AUDIT", savedAudit.getId().toString(), request);
+
         // Notify all managers
         userRepository.findByRole(UserRole.MANAGER).forEach(m ->
                 notificationService.push(m, NotificationType.AUDIT_ASSIGNED,
@@ -101,6 +108,9 @@ public class AuditService {
         audit.setStatus(AuditStatus.IN_PROGRESS);
         audit = auditRepository.save(audit);
         recordHistory(audit, oldStatus, AuditStatus.IN_PROGRESS, "Assigned to auditor");
+        
+        auditLogService.log(Optional.of(currentUser()), "ASSIGN_AUDITOR", "AUDIT", audit.getId().toString(), request);
+
         notificationService.push(auditor, NotificationType.AUDIT_ASSIGNED,
                 "Audit assigné", "Vous avez été assigné à l'audit '" + audit.getTitle() + "'.", auditId.toString(), "AUDIT");
         return toResponse(audit);
@@ -115,6 +125,9 @@ public class AuditService {
         audit.setStatus(newStatus);
         audit = auditRepository.save(audit);
         recordHistory(audit, old, newStatus, req != null ? req.getComment() : null);
+        
+        auditLogService.log(Optional.of(me), "CHANGE_STATUS_" + newStatus, "AUDIT", audit.getId().toString(), request);
+
         return toResponse(audit);
     }
 

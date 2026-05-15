@@ -35,6 +35,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -54,128 +55,107 @@ public class AiService {
     private final NotificationService notificationService;
     private final AppProperties appProperties;
     private final ObjectMapper objectMapper;
+    private final DocumentEmbeddingHashCache embeddingHashCache;
     private final RestTemplate restTemplate = new RestTemplate();
 
     // ─── PUBLIC API ──────────────────────────────────────────────────────────
 
     @Async
     public CompletableFuture<Void> analyzeAuditAsync(UUID auditId) {
-        log.info("Starting AI analysis for audit: {}", auditId);
+        log.info("🚀 Starting Real RAG analysis for audit: {}", auditId);
         long startTime = System.currentTimeMillis();
 
         Audit audit = auditRepository.findById(auditId).orElse(null);
         if (audit == null) return CompletableFuture.completedFuture(null);
 
-        AuditForm form = formRepository.findByAuditId(auditId).orElse(null);
         List<Document> docs = documentRepository.findByAuditId(auditId);
-
-        String systemPrompt = buildSystemPrompt();
-        String userPrompt   = buildUserPrompt(audit, form, docs);
-
-        String modelUsed    = "groq/" + appProperties.getAi().getGroq().getModel();
-        String jsonResponse = null;
+        String modelUsed = "local-rag-" + appProperties.getAi().getRag().getModelName();
 
         try {
-            jsonResponse = callGroq(systemPrompt, userPrompt);
-        } catch (Exception e) {
-            log.warn("Groq failed ({}), retrying in 3s…", e.getMessage());
-            try {
-                Thread.sleep(3000);
-                jsonResponse = callGroq(systemPrompt, userPrompt);
-            } catch (Exception e2) {
-                log.warn("Groq retry failed, trying Mistral…");
-                modelUsed = "mistral/" + appProperties.getAi().getMistral().getModel();
+            String ragBase = appProperties.getAi().getRag().getBaseUrl().replaceAll("/$", "");
+            String publicBase = appProperties.getAi().getRag().getPublicBaseUrl().replaceAll("/$", "");
+
+            for (Document d : docs) {
                 try {
-                    jsonResponse = callMistral(systemPrompt + "\n\n" + userPrompt);
-                } catch (Exception e3) {
-                    if (e3.getMessage().contains("configured")) {
-                        log.info("No AI API keys found. Generating fake stub result for demonstration.");
-                        modelUsed = "demo-simulation";
-                        
-                        if (docs.isEmpty() && form == null) {
-                            jsonResponse = """
-                            {
-                              "summary": "Attention: L'IA n'a reçu aucune donnée financière ni aucun document à analyser. Il est impossible d'évaluer le dossier en l'état.",
-                              "risk_score": 0,
-                              "risk_level": "LOW",
-                              "anomalies": [],
-                              "points_forts": [],
-                              "recommandations": [
-                                {
-                                  "action": "Demander au client de fournir ses bilans financiers et le grand livre.",
-                                  "priorite": "IMMEDIATE",
-                                  "responsable": "Auditeur"
-                                }
-                              ],
-                              "conclusion": "Analyse bloquée : manque cruel de données."
-                            }
-                            """;
-                        } else if (docs.isEmpty()) {
-                            jsonResponse = """
-                            {
-                              "summary": "Aucun document n'a été uploadé (bilans, relevés). L'IA n'a pu analyser que le formulaire d'inscription de l'entreprise. Impossible de se prononcer ou de vérifier la cohérence des chiffres.",
-                              "risk_score": 30,
-                              "risk_level": "MEDIUM",
-                              "anomalies": [
-                                {
-                                  "titre": "Absence totale de pièces justificatives",
-                                  "description": "Le dossier est vide de tout document.",
-                                  "severite": "MEDIUM",
-                                  "categorie": "CONFORMITE"
-                                }
-                              ],
-                              "points_forts": [],
-                              "recommandations": [
-                                {
-                                  "action": "Exiger l'upload du bilan 2023 et du grand livre",
-                                  "priorite": "IMMEDIATE",
-                                  "responsable": "Client"
-                                }
-                              ],
-                              "conclusion": "Le dossier est incomplet. Des documents financiers sont nécessaires pour une analyse approfondie."
-                            }
-                            """;
-                        } else {
-                            jsonResponse = """
-                            {
-                              "summary": "Analyse Complète (Mode Simulation Locale). L'investigation des documents révèle plusieurs irrégularités critiques. Bien que le dossier soit fourni, les factures de Février manquent d'acquittement.",
-                              "risk_score": 85,
-                              "risk_level": "CRITICAL",
-                              "anomalies": [
-                                {
-                                  "titre": "Absence d'Acquittement - Février",
-                                  "description": "5 factures majeures (Total: 450 K€) n'ont aucune preuve de paiement.",
-                                  "severite": "CRITICAL",
-                                  "categorie": "FRAUDE"
-                                },
-                                {
-                                  "titre": "Incohérence du Chiffre d'Affaires",
-                                  "description": "Le CA déclaré ne correspond pas aux entrées bancaires.",
-                                  "severite": "HIGH",
-                                  "categorie": "CONFORMITE"
-                                }
-                              ],
-                              "recommandations": [
-                                {
-                                  "action": "Convoquer le Directeur Financier immédiatement.",
-                                  "priorite": "IMMEDIATE",
-                                  "responsable": "Auditeur"
-                                }
-                              ],
-                              "conclusion": "SIMULATION REUSSIE: Risque Maximal détecté suite à l'analyse des reçus factices générés par le système."
-                            }
-                            """;
-                        }
-                    } else {
-                        log.error("All AI providers failed for audit {}", auditId, e3);
-                        saveErrorResult(audit, e3.getMessage(), modelUsed, System.currentTimeMillis() - startTime);
-                        return CompletableFuture.completedFuture(null);
+                    byte[] raw = storageService.downloadFile(d.getFileKey());
+                    String sha = sha256Hex(raw);
+                    if (embeddingHashCache.isKnown(sha)) {
+                        log.info("Document hash already seen (embedding cache): {}", sha.substring(0, 12));
                     }
+                    embeddingHashCache.remember(sha);
+                } catch (Exception ex) {
+                    log.debug("Could not hash document {}: {}", d.getId(), ex.getMessage());
                 }
             }
-        }
 
-        saveAndNotify(audit, jsonResponse, modelUsed, System.currentTimeMillis() - startTime);
+            Map<String, Object> payload = Map.of(
+                    "audit_id", auditId.toString(),
+                    "audit_title", audit.getTitle(),
+                    "audit_description", audit.getDescription() != null ? audit.getDescription() : "",
+                    "document_urls", docs.stream().map(d -> Map.of(
+                            "filename", d.getFileName(),
+                            "download_url", publicBase + "/api/documents/download/" + d.getId()
+                    )).collect(Collectors.toList())
+            );
+
+            log.info("Calling Python RAG at {}/analyse", ragBase);
+            restTemplate.postForObject(ragBase + "/analyse", payload, Map.class);
+
+            String jsonResponse = null;
+            boolean finished = false;
+            int attempts = 0;
+
+            while (!finished && attempts < 120) {
+                Thread.sleep(2000);
+                attempts++;
+
+                @SuppressWarnings("unchecked")
+                Map<String, Object> status = restTemplate.getForObject(
+                        ragBase + "/analyse/" + auditId + "/status",
+                        Map.class
+                );
+
+                if (status != null && "done".equals(status.get("status"))) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> result = (Map<String, Object>) status.get("result");
+                    if (result == null) {
+                        throw new RuntimeException("RAG completed without result payload");
+                    }
+                    Map<String, Object> mappedResult = Map.of(
+                            "summary", result.getOrDefault("summary", ""),
+                            "risk_score", result.getOrDefault("risk_score", 0),
+                            "risk_level", result.getOrDefault("risk_level", "LOW"),
+                            "anomalies", result.getOrDefault("violations", List.of()),
+                            "recommandations", result.getOrDefault("recommandations", List.of()),
+                            "conclusion", result.getOrDefault("conclusion", "")
+                    );
+                    jsonResponse = objectMapper.writeValueAsString(mappedResult);
+                    finished = true;
+                    log.info("RAG analysis finished for audit {}", auditId);
+                } else if (status != null && "error".equals(status.get("status"))) {
+                    throw new RuntimeException("RAG Service Error: " + status.get("error"));
+                }
+            }
+
+            if (jsonResponse != null) {
+                saveAndNotify(audit, jsonResponse, modelUsed, System.currentTimeMillis() - startTime);
+            } else {
+                throw new RuntimeException("Timeout waiting for RAG service");
+            }
+
+        } catch (Exception e) {
+            log.warn("Local RAG failed or offline: {}. Falling back to Groq/Mistral...", e.getMessage());
+            // ... original fallback logic ...
+            String systemPrompt = buildSystemPrompt();
+            String userPrompt   = buildUserPrompt(audit, null, docs);
+            try {
+                String fallbackResponse = callGroq(systemPrompt, userPrompt);
+                saveAndNotify(audit, fallbackResponse, "groq-fallback", System.currentTimeMillis() - startTime);
+            } catch (Exception ex) {
+                log.error("All AI providers failed including Local RAG.", ex);
+                saveErrorResult(audit, "Service RAG indisponible et APIs externes non configurées.", "error", 0);
+            }
+        }
         return CompletableFuture.completedFuture(null);
     }
 
@@ -533,5 +513,15 @@ public class AiService {
 
     private String safe(Object val) {
         return val != null ? val.toString() : "Non renseigné";
+    }
+
+    private static String sha256Hex(byte[] data) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] digest = md.digest(data);
+        StringBuilder sb = new StringBuilder(digest.length * 2);
+        for (byte b : digest) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }

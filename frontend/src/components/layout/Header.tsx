@@ -7,6 +7,21 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 
+const searchPlaceholder = (role: string | undefined) => {
+  switch (role) {
+    case 'ADMIN':
+      return 'Rechercher un utilisateur, un journal d’activité ou une mission…';
+    case 'MANAGER':
+      return 'Rechercher un dossier, un client ou un auditeur…';
+    case 'AUDITOR':
+      return 'Rechercher un dossier ou un document…';
+    case 'CLIENT':
+      return 'Rechercher une demande ou un message…';
+    default:
+      return 'Rechercher…';
+  }
+};
+
 export function Header() {
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
@@ -41,7 +56,7 @@ export function Header() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
           <input 
             type="text" 
-            placeholder="Rechercher un audit, document ou utilisateur..." 
+            placeholder={searchPlaceholder(user?.role)}
             className="w-full h-10 bg-[var(--muted)]/50 border border-[var(--border)] rounded-full pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all duration-300"
           />
         </div>

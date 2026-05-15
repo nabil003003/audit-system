@@ -20,6 +20,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="dark">
+      <head>
+        <meta charSet="utf-8" />
+      </head>
       <body className={`${outfit.variable} font-sans antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)]`}>
         {children}
         <Toaster position="bottom-right" toastOptions={{ style: { background: '#18181b', color: '#fafafa', border: '1px solid #27272a' } }} />

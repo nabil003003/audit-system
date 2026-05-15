@@ -46,6 +46,21 @@ export default function AuditDetailPage() {
   useEffect(() => { 
     if (user) {
       loadAudit(); 
+      
+      // Time tracking for AUDITOR
+      if (user.role === 'AUDITOR') {
+        apiFetch(`/api/audits/time/${id}/start`, { method: 'POST' }).catch(() => {});
+        
+        const heartbeat = setInterval(() => {
+          apiFetch(`/api/audits/time/${id}/heartbeat`, { method: 'POST' }).catch(() => {});
+        }, 30000); // Every 30 seconds
+
+        return () => {
+          clearInterval(heartbeat);
+          // Navigator.sendBeacon is better for unmount but apiFetch with stop is fine here
+          apiFetch(`/api/audits/time/${id}/stop`, { method: 'POST' }).catch(() => {});
+        };
+      }
     }
   }, [id, user]);
 
@@ -347,57 +362,52 @@ export default function AuditDetailPage() {
           )}
         </div>
 
-        {/* AI Results — RAG Juridique Marocain */}
-        <div className="glass rounded-2xl p-6 space-y-4 border border-indigo-500/20">
-          <h2 className="font-semibold text-[var(--foreground)] flex items-center gap-2">
-            <Brain className="h-5 w-5 text-indigo-400" /> Analyse Juridique RAG
-          </h2>
-          {aiResult ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className={`text-4xl font-bold ${aiResult.riskScore > 70 ? 'text-red-400' : aiResult.riskScore > 40 ? 'text-yellow-400' : 'text-green-400'}`}>
-                  {aiResult.riskScore}
+        {/* AI Results — RAG Juridique Marocain (Internal tool for Auditors) */}
+        {user?.role === 'AUDITOR' && (
+          <div className="glass rounded-2xl p-6 space-y-4 border border-indigo-500/20">
+            <h2 className="font-semibold text-[var(--foreground)] flex items-center gap-2">
+              <Brain className="h-5 w-5 text-indigo-400" /> Assistant IA (RAG Juridique)
+            </h2>
+            {aiResult ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className={`text-4xl font-bold ${aiResult.riskScore > 70 ? 'text-red-400' : aiResult.riskScore > 40 ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {aiResult.riskScore}
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted-foreground)]">Score de Risque Interne</p>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${aiResult.riskScore > 70 ? 'bg-red-500/10 text-red-400' : aiResult.riskScore > 40 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'}`}>
+                      {aiResult.riskLevel}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-[var(--muted-foreground)]">Score de Risque</p>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${aiResult.riskScore > 70 ? 'bg-red-500/10 text-red-400' : aiResult.riskScore > 40 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'}`}>
-                    {aiResult.riskLevel}
-                  </span>
+                <div className="bg-[var(--muted)]/50 rounded-xl p-3">
+                  <p className="text-sm text-[var(--foreground)] leading-relaxed truncate-3-lines">{aiResult.summary}</p>
                 </div>
+                <Link href={`/audit/${id}/analyse`}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-all shadow-md shadow-indigo-500/20">
+                  <Brain className="h-4 w-4" /> Ouvrir l&apos;interface d&apos;analyse RAG
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
               </div>
-              <div className="w-full h-2 rounded-full bg-[var(--muted)]">
-                <div className={`h-2 rounded-full transition-all ${aiResult.riskScore > 70 ? 'bg-red-500' : aiResult.riskScore > 40 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                  style={{ width: `${aiResult.riskScore}%` }} />
-              </div>
-              <div className="bg-[var(--muted)]/50 rounded-xl p-3">
-                <p className="text-xs text-[var(--muted-foreground)] mb-1">Résumé</p>
-                <p className="text-sm text-[var(--foreground)] leading-relaxed">{aiResult.summary}</p>
-              </div>
-              <Link href={`/audit/${id}/analyse`}
-                className="flex items-center justify-center gap-2 w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-all shadow-md shadow-indigo-500/20">
-                <Brain className="h-4 w-4" /> Ouvrir l&apos;analyse complète
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          ) : (
-            <div className="py-6 text-center space-y-4">
-              <div className="h-16 w-16 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center">
-                <Brain className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div>
-                <p className="text-[var(--foreground)] font-medium text-sm">Analyse juridique RAG locale</p>
-                <p className="text-xs text-[var(--muted-foreground)]/80 mt-1">
-                  Comparaison avec la base de droit marocain (10 domaines) + rapport Word
+            ) : (
+              <div className="py-6 text-center space-y-4">
+                <div className="h-16 w-16 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center">
+                  <Brain className="h-8 w-8 text-indigo-400" />
+                </div>
+                <p className="text-xs text-[var(--muted-foreground)] px-4">
+                  Utilisez le système RAG pour comparer les documents avec le droit marocain.
                 </p>
+                <Link href={`/audit/${id}/analyse`}
+                  className="mx-auto flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all shadow-lg shadow-indigo-500/25">
+                  <Brain className="h-4 w-4" /> Lancer l&apos;Analyse IA
+                </Link>
               </div>
-              <Link href={`/audit/${id}/analyse`}
-                className="mx-auto flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all shadow-lg shadow-indigo-500/25">
-                <Brain className="h-4 w-4" /> Lancer l&apos;analyse RAG
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
+
+        {/* Client View — Removed AI tracking text */}
 
         {/* Documents */}
         <div className="glass rounded-2xl overflow-hidden flex flex-col">

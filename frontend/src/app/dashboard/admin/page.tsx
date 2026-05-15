@@ -5,7 +5,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { apiFetch } from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Users, FileText, CheckCircle, Activity, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Users,
+  FileText,
+  CheckCircle,
+  Activity,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Shield,
+  Cpu,
+  Lock,
+  Server,
+} from 'lucide-react';
 
 const PAGE_SIZE = 5;
 
@@ -27,6 +39,7 @@ export default function AdminDashboard() {
   useAuth(['ADMIN']);
   const [users, setUsers] = useState<any[]>([]);
   const [audits, setAudits] = useState<any[]>([]);
+  const [systemStatus, setSystemStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [auditPage, setAuditPage] = useState(0);
 
@@ -39,11 +52,13 @@ export default function AdminDashboard() {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [uRes, aRes] = await Promise.all([
+      const [uRes, aRes, sRes] = await Promise.all([
         apiFetch('/api/users?size=1'),
         apiFetch('/api/audits?size=200&sort=createdAt,desc'),
+        apiFetch('/api/system/status'),
       ]);
       setUsers({ total: uRes?.totalElements || 0 } as any);
+      setSystemStatus(sRes);
       const raw = aRes?.content ?? (Array.isArray(aRes) ? aRes : []);
       // Sort newest first
       const sorted = [...raw].sort((a, b) =>
@@ -51,7 +66,6 @@ export default function AdminDashboard() {
         new Date(a.createdAt || a.deadline || 0).getTime()
       );
       setAudits(sorted);
-      setAuditPage(0);
     } catch (e: any) { 
       if (!isBackground) toast.error(e.message); 
     }
@@ -59,23 +73,57 @@ export default function AdminDashboard() {
   };
 
   const stats = [
-    { label: 'Utilisateurs Globaux', value: (users as any).total || 0, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    { label: 'Total Audits', value: audits.length, icon: FileText, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-    { label: 'En Cours', value: audits.filter(a => a.status === 'IN_PROGRESS').length, icon: Activity, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-    { label: 'Terminés', value: audits.filter(a => a.status === 'COMPLETED').length, icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10' },
+    { label: 'Comptes actifs', value: (users as any).total || 0, icon: Users, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+    { label: 'Missions référencées', value: audits.length, icon: FileText, color: 'text-slate-400', bg: 'bg-slate-500/10' },
+    { label: 'Missions en cours', value: audits.filter((a) => a.status === 'IN_PROGRESS').length, icon: Activity, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+    { label: 'Missions clôturées', value: audits.filter((a) => a.status === 'COMPLETED').length, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
   ];
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">Administration</h1>
-          <p className="text-[var(--muted-foreground)] text-sm mt-1">Gestion complète de la plateforme AuditPro</p>
+      <div className="relative overflow-hidden rounded-3xl border border-indigo-500/25 bg-gradient-to-br from-slate-900/90 via-indigo-950/80 to-slate-900/90 p-6 sm:p-8 text-white shadow-xl shadow-indigo-900/30">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.35),transparent_55%)] pointer-events-none" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-indigo-200/90">Autorité centrale</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Centre de supervision &amp; gouvernance</h1>
+            <p className="text-sm text-indigo-100/85 leading-relaxed">
+              Vous ne conduisez pas les missions d&apos;audit : vous garantissez la stabilité, la sécurité et la conformité
+              de la plateforme. Tableaux analytiques en temps réel, contrôle des accès, journaux d&apos;activité et
+              vision globale des performances.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {[
+                { icon: Shield, t: 'Sécurité & conformité' },
+                { icon: Lock, t: 'Contrôle des accès' },
+                { icon: Server, t: 'Résilience plateforme' },
+              ].map(({ icon: I, t }) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-medium text-indigo-50/95"
+                >
+                  <I className="h-3.5 w-3.5 text-indigo-200" />
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 lg:flex-col lg:items-end">
+            <Link
+              href="/dashboard/users"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-lg shadow-black/20 hover:bg-indigo-50 transition-colors"
+            >
+              <Users className="h-4 w-4" />
+              Comptes &amp; habilitations
+            </Link>
+            <div className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-xs text-indigo-100/90">
+              <Cpu className="h-4 w-4 text-emerald-300 shrink-0" />
+              <span>
+                Actualisation automatique des indicateurs toutes les <strong className="text-white">10 s</strong>.
+              </span>
+            </div>
+          </div>
         </div>
-        <Link href="/dashboard/users"
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 hover:opacity-90 transition-all">
-          <Users className="h-4 w-4" /> Gérer les Utilisateurs
-        </Link>
       </div>
 
       {/* Stats */}
@@ -86,48 +134,45 @@ export default function AdminDashboard() {
               <s.icon className={`h-6 w-6 ${s.color}`} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-[var(--foreground)]">{loading ? '—' : s.value}</p>
+              <p className="text-2xl font-bold text-[var(--foreground)]">{loading && !systemStatus ? '—' : s.value}</p>
               <p className="text-xs text-[var(--muted-foreground)]">{s.label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Audit Progress Chart */}
-      <div className="glass rounded-2xl overflow-hidden p-6 border border-[var(--border)]">
+      {/* Global Mission Progress */}
+      <div className="glass rounded-2xl p-6 border border-[var(--border)]">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-semibold text-[var(--foreground)] flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-indigo-400" />
-            Avancement des Dossiers
+            Synthèse analytique des missions
           </h2>
-          <div className="flex items-center gap-2 text-xs px-2.5 py-1 bg-green-500/10 text-green-400 font-medium rounded-full border border-green-500/20">
-            <div className="h-1.5 w-1.5 bg-green-400 rounded-full animate-pulse" />
-            Temps Réel
-          </div>
+          <span className="text-xs text-[var(--muted-foreground)] uppercase tracking-widest font-bold">Temps réel</span>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
           {[
-            { name: 'Brouillon', key: 'DRAFT', color: 'bg-gray-400' },
-            { name: 'En Attente', key: 'PENDING', color: 'bg-yellow-400' },
-            { name: 'En Cours', key: 'IN_PROGRESS', color: 'bg-blue-500' },
-            { name: 'Docs Requis', key: 'AWAITING_DOCS', color: 'bg-orange-400' },
-            { name: 'Terminés', key: 'COMPLETED', color: 'bg-green-500' },
-            { name: 'Annulés', key: 'CANCELLED', color: 'bg-red-500' },
+            { name: 'En Attente / Brouillon', keys: ['PENDING', 'DRAFT'], color: 'bg-yellow-400' },
+            { name: 'En Cours d\'Analyse', key: 'IN_PROGRESS', color: 'bg-blue-500' },
+            { name: 'Documents Requis', key: 'AWAITING_DOCS', color: 'bg-orange-400' },
+            { name: 'Missions Terminées', key: 'COMPLETED', color: 'bg-green-500' },
           ].map(d => {
-            const count = audits.filter(a => a.status === d.key).length;
-            const percentage = audits.length > 0 ? Math.round((count / audits.length) * 100) : 0;
+            const count = d.keys 
+              ? d.keys.reduce((acc, k) => acc + (systemStatus?.auditStats?.[k] || 0), 0)
+              : (systemStatus?.auditStats?.[d.key!] || 0);
+            
+            const totalAudits = Object.values(systemStatus?.auditStats || {}).reduce((a: any, b: any) => a + b, 0) || 1;
+            const percentage = Math.round((count / (totalAudits as number)) * 100);
+            
             return (
-              <div key={d.key} className="space-y-2">
+              <div key={d.name} className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="font-medium text-[var(--foreground)]">{d.name}</span>
-                  <span className="text-[var(--muted-foreground)] font-mono text-xs">{count} dossier(s) <span className="opacity-50">({percentage}%)</span></span>
+                  <span className="text-[var(--muted-foreground)] font-mono text-xs font-bold">{count}</span>
                 </div>
                 <div className="w-full h-2.5 bg-[var(--muted)] rounded-full overflow-hidden shadow-inner">
-                  <div 
-                    className={`h-full ${d.color} rounded-full transition-all duration-1000 ease-out`} 
-                    style={{ width: `${percentage}%` }}
-                  />
+                  <div className={`h-full ${d.color} rounded-full shadow-lg transition-all duration-1000`} style={{ width: `${percentage}%` }} />
                 </div>
               </div>
             );
@@ -135,11 +180,111 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Statistics & Activity Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* User Distribution Card */}
+        <div className="glass rounded-2xl p-6 border border-[var(--border)] space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-[var(--foreground)] flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-400" />
+              Répartition des Utilisateurs
+            </h2>
+            <span className="text-xs text-[var(--muted-foreground)]">
+              Total:{' '}
+              {systemStatus?.userStats
+                ? (Object.values(systemStatus.userStats as Record<string, number>).reduce((a, b) => a + b, 0) as number)
+                : '—'}
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              { label: 'Administrateurs', key: 'ADMIN', color: 'bg-purple-500' },
+              { label: 'Managers', key: 'MANAGER', color: 'bg-blue-500' },
+              { label: 'Auditeurs', key: 'AUDITOR', color: 'bg-indigo-500' },
+              { label: 'Clients', key: 'CLIENT', color: 'bg-teal-500' },
+            ].map(role => {
+              const count = systemStatus?.userStats?.[role.key] || 0;
+              const totalUsers = Object.values(systemStatus?.userStats || {}).reduce((a: any, b: any) => a + b, 0) || 1;
+              const percentage = Math.round((count / (totalUsers as number)) * 100);
+              
+              return (
+                <div key={role.key} className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-[var(--foreground)]">{role.label}</span>
+                    <span className="text-[var(--muted-foreground)]">{count} ({percentage}%)</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-[var(--muted)] rounded-full overflow-hidden">
+                    <div className={`h-full ${role.color} rounded-full transition-all duration-1000`} style={{ width: `${percentage}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="pt-2 grid grid-cols-2 gap-2">
+            <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 text-center">
+              <p className="text-xl font-bold text-blue-400">{systemStatus?.userStats?.['CLIENT'] || 0}</p>
+              <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-wider">Clients Actifs</p>
+            </div>
+            <div className="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 text-center">
+              <p className="text-xl font-bold text-indigo-400">{systemStatus?.userStats?.['AUDITOR'] || 0}</p>
+              <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-wider">Équipe Audit</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Activity Feed Card */}
+        <div className="glass rounded-2xl p-6 border border-[var(--border)] flex flex-col h-full">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-semibold text-[var(--foreground)] flex items-center gap-2">
+              <Activity className="h-5 w-5 text-red-400" />
+              Journal d&apos;activité &amp; traçabilité
+            </h2>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">En direct</span>
+            </div>
+          </div>
+
+          <div className="flex-1 space-y-4 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+            {systemStatus?.recentLogs?.length > 0 ? (
+              systemStatus.recentLogs.map((log: any, i: number) => (
+                <div key={i} className="flex gap-3 group">
+                  <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${log.action.includes('FAILED') || log.action.includes('DELETE') ? 'bg-red-500' : 'bg-blue-500'}`} />
+                  <div className="flex-1 min-w-0 border-l border-[var(--border)] pl-3 pb-4 last:pb-0">
+                    <div className="flex justify-between items-start">
+                      <p className="text-xs font-semibold text-[var(--foreground)] group-hover:text-blue-400 transition-colors">
+                        {log.action.replace(/_/g, ' ')}
+                      </p>
+                      <span className="text-[10px] text-[var(--muted-foreground)] font-mono">
+                        {new Date(log.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5 truncate">
+                      {log.userEmail} • {log.ipAddress}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-[var(--muted-foreground)] italic text-sm">
+                Aucune activité récente détectée
+              </div>
+            )}
+          </div>
+          
+          <div className="mt-4 text-center py-2 text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-widest border-t border-[var(--border)] pt-4">
+            Fin du journal d&apos;activité
+          </div>
+        </div>
+      </div>
+
 
       {/* Audits Monitoring Table */}
       <div className="glass rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
-          <h2 className="font-semibold text-[var(--foreground)]">Monitoring des audits</h2>
+          <h2 className="font-semibold text-[var(--foreground)]">Supervision transversale des dossiers</h2>
           <span className="text-xs text-[var(--muted-foreground)]">
             Page {auditPage + 1} / {Math.max(1, Math.ceil(audits.length / PAGE_SIZE))} &nbsp;·&nbsp; {audits.length} audit(s)
           </span>

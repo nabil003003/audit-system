@@ -81,6 +81,38 @@
     @apply hover:bg-[var(--secondary)] transition-all duration-300;
   }
 
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .border-gradient {
+    background: linear-gradient(
+      135deg,
+      rgba(99, 102, 241, 0.15),
+      rgba(139, 92, 246, 0.15),
+      rgba(59, 130, 246, 0.15)
+    );
+    animation: borderShift 4s ease infinite;
+  }
+
+  @keyframes borderShift {
+    0% {
+      filter: hue-rotate(0deg);
+    }
+    50% {
+      filter: hue-rotate(25deg);
+    }
+    100% {
+      filter: hue-rotate(0deg);
+    }
+  }
+
   .text-gradient {
     @apply text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600;
   }
